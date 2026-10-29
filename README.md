@@ -69,3 +69,23 @@ Example create body:
 Invalid input and malformed IDs return 400; missing records return 404. Stop MongoDB with `npm run db:down` (keeps saved data).
 
 Framework references: [Next.js installation](https://nextjs.org/docs/app/getting-started/installation), [NestJS MongoDB integration](https://docs.nestjs.com/techniques/mongodb).
+
+## Booking requests
+
+Clients can select **Request booking** on an available property, choose check-in and checkout dates, and send a request. **My booking requests** shows pending, approved, and rejected requests. Admin sees all requests; landlords see only requests for properties they own. Request details include the client username, property name/address, bedrooms, monthly rent, and dates. Both admin and the property landlord can approve or reject pending requests; the first decision wins. The dashboard refreshes requests every 15 seconds and also has a Refresh button.
+
+Dates use the India calendar, require check-in today or later, and checkout after check-in. Checkout is exclusive, so another booking may start on the previous booking's checkout date. Approved date ranges cannot overlap; approval uses a single atomic property update to prevent competing approvals. Availability remains a listing-level control, while approved bookings reserve only their date range. Duplicate pending requests for the same client/property/dates are blocked.
+
+Property deletion archives the listing to retain booking history, hides it from property searches, and prevents new requests or approvals. Pending requests for archived properties may still be rejected. Booking details are excluded from normal property responses to keep other clients' requests private.
+
+| Method | Endpoint | Action |
+| --- | --- | --- |
+| GET | /api/bookings | List requests allowed for the logged-in role |
+| POST | /api/bookings | Client request: `propertyId`, `fromDate`, `toDate` (`YYYY-MM-DD`) |
+| PATCH | /api/bookings/:id | Admin or owning landlord decision: `status` (`approved` or `rejected`) |
+
+Run booking integration checks against an isolated API/database:
+
+```sh
+TEST_API_URL=http://localhost:3028/api node apps/api/test/bookings.integration.cjs
+```

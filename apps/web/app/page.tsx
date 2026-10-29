@@ -1,5 +1,5 @@
 'use client';
-import Landing, { Brand } from './landing';
+import Landing, { Brand, Icon } from './landing';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 type Property = { _id: string; title: string; address: string; rent: number; bedrooms: number; description: string; available: boolean; ownerId?: string };
 type User = { _id: string; username: string; role: 'admin' | 'landlord' | 'client' };
@@ -107,7 +107,7 @@ export default function Home() {
         <div className="card-top"><span className="house">⌂</span><span className={p.available ? 'status' : 'status occupied'}>{p.available ? 'Available' : 'Occupied'}</span></div>
         <h3>{p.title}</h3><p className="address">{p.address}</p><p className="description">{p.description || 'No description added.'}</p>
         <div className="details"><span><b>₹{p.rent.toLocaleString('en-IN')}</b> / month</span><span>{p.bedrooms === 0 ? 'Studio' : `${p.bedrooms} bed`}</span></div>
-        {canManage(p) && <div className="actions"><button disabled={busy} onClick={() => { setEditing(p._id); setForm({ title: p.title, address: p.address, rent: String(p.rent), bedrooms: String(p.bedrooms), description: p.description, available: p.available }); }}>Edit property</button><button className="delete" disabled={busy} onClick={() => void remove(p)}>Delete</button></div>}
+        {canManage(p) && <div className="actions"><button disabled={busy} onClick={() => { setEditing(p._id); setForm({ title: p.title, address: p.address, rent: String(p.rent), bedrooms: String(p.bedrooms), description: p.description, available: p.available }); }}>Edit property</button><button className="delete" disabled={busy} onClick={() => void remove(p)}><Icon name="trash" size={16}/>Delete</button></div>}
       </article>)}
     </section>{user.role !== 'client' && <section className="form-panel"><p className="eyebrow">GROW YOUR PORTFOLIO</p><h2>{editing ? 'Edit property' : 'Add a property'}</h2><p>Just the essentials to get started.</p>
       <form onSubmit={save}>

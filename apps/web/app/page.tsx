@@ -1,17 +1,13 @@
 'use client';
+import { request } from './api';
+import { BookingForm, BookingsPanel } from './bookings';
 import Landing, { Brand, Icon } from './landing';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 type Property = { _id: string; title: string; address: string; rent: number; bedrooms: number; description: string; available: boolean; ownerId?: string };
 type User = { _id: string; username: string; role: 'admin' | 'landlord' | 'client' };
 const empty = { title: '', address: '', rent: '', bedrooms: '1', description: '', available: true };
-const api = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-async function request(path = '', options?: RequestInit) {
-  const response = await fetch(`${api}${path}`, { ...options, credentials: 'include' });
-  const data = await response.json();
-  if (!response.ok) throw new Error(Array.isArray(data.message) ? data.message.join(', ') : data.message || 'Request failed');
-  return data;
-}
 export default function Home() {
+  const [bookingRevision, setBookingRevision] = useState(0);
   const [authOpen, setAuthOpen] = useState(false);
   const closeAuth = useCallback(() => setAuthOpen(false), []);
   const [searchQuery, setSearchQuery] = useState('');
@@ -99,6 +95,7 @@ export default function Home() {
     <div className="stats"><div><strong>{properties.length}</strong><span>Total properties</span></div><div><strong>{properties.filter(p => p.available).length}</strong><span>Available to rent</span></div></div>
     {error && <div className="error" role="alert">{error} <button onClick={() => void load()} disabled={busy}>Retry</button></div>}
     {notice && <p role="status">{notice}</p>}
+    <BookingsPanel key={user._id} role={user.role} revision={bookingRevision}/>
     {user.role === 'admin' && <section className="admin-panel form-panel"><div><p className="eyebrow">ADMINISTRATION</p><h2>Manage accounts</h2><p>Create landlord and client accounts. Deleting an account signs the user out; its properties remain under admin management.</p>
       {users.length === 0 ? <p>No landlord or client accounts yet.</p> : users.map(target => <div className="user-row" key={target._id}><span><b>{target.username}</b> · {target.role}</span><button className="delete" disabled={busy} onClick={() => void deleteUser(target)}>Delete account</button></div>)}
     </div><form onSubmit={createUser}><label>Username<input required minLength={3} maxLength={40} pattern="[a-zA-Z0-9_.-]+" autoComplete="off" value={newUser.username} onChange={e => setNewUser({ ...newUser, username: e.target.value })}/></label><label>Password<input required type="password" minLength={8} maxLength={128} autoComplete="new-password" value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })}/></label><label>Role<select value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })}><option value="landlord">Landlord</option><option value="client">Client</option></select></label><button className="primary" disabled={busy}>Create account</button></form></section>}
@@ -107,6 +104,7 @@ export default function Home() {
         <div className="card-top"><span className="house">⌂</span><span className={p.available ? 'status' : 'status occupied'}>{p.available ? 'Available' : 'Occupied'}</span></div>
         <h3>{p.title}</h3><p className="address">{p.address}</p><p className="description">{p.description || 'No description added.'}</p>
         <div className="details"><span><b>₹{p.rent.toLocaleString('en-IN')}</b> / month</span><span>{p.bedrooms === 0 ? 'Studio' : `${p.bedrooms} bed`}</span></div>
+        {user.role === 'client' && p.available && <BookingForm propertyId={p._id} onSubmitted={() => setBookingRevision(value => value + 1)}/>}
         {canManage(p) && <div className="actions"><button disabled={busy} onClick={() => { setEditing(p._id); setForm({ title: p.title, address: p.address, rent: String(p.rent), bedrooms: String(p.bedrooms), description: p.description, available: p.available }); }}>Edit property</button><button className="delete" disabled={busy} onClick={() => void remove(p)}><Icon name="trash" size={16}/>Delete</button></div>}
       </article>)}
     </section>{user.role !== 'client' && <section className="form-panel"><p className="eyebrow">GROW YOUR PORTFOLIO</p><h2>{editing ? 'Edit property' : 'Add a property'}</h2><p>Just the essentials to get started.</p>

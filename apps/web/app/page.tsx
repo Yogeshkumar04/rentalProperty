@@ -1,4 +1,5 @@
 'use client';
+import Landing, { Brand } from './landing';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 type Property = { _id: string; title: string; address: string; rent: number; bedrooms: number; description: string; available: boolean; ownerId?: string };
 type User = { _id: string; username: string; role: 'admin' | 'landlord' | 'client' };
@@ -11,6 +12,10 @@ async function request(path = '', options?: RequestInit) {
   return data;
 }
 export default function Home() {
+  const [authOpen, setAuthOpen] = useState(false);
+  const closeAuth = useCallback(() => setAuthOpen(false), []);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [bedroomFilter, setBedroomFilter] = useState('');
   const [user, setUser] = useState<User | null>(null);
   const [checking, setChecking] = useState(true);
   const [signup, setSignup] = useState(false);
@@ -37,6 +42,7 @@ export default function Home() {
     try {
       if (signup) await request('/auth/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(account) });
       setUser(await request('/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: account.username, password: account.password }) }));
+      setAuthOpen(false);
       setAccount({ username: '', password: '', role: 'client' });
     } catch (e) { setError(e instanceof Error ? e.message : 'Authentication failed'); } finally { setBusy(false); }
   }
@@ -73,9 +79,8 @@ export default function Home() {
     finally { setBusy(false); }
   }
   if (checking) return <main><p role="status">Loading your session…</p></main>;
-  if (!user) return <main>
-    <header><div className="brand">⌂ &nbsp; RENTAL PROPERTY</div></header>
-    <section className="auth-panel form-panel"><p className="eyebrow">YOUR SPACE, SIMPLIFIED</p><h1>{signup ? 'Create an account' : 'Welcome back'}</h1><p>Log in to find your next home or manage your properties.</p>
+  if (!user) return <Landing authOpen={authOpen} onClose={closeAuth} onAuth={(mode, role) => { setSignup(mode); setAccount({ username: '', password: '', role: role || 'client' }); setError(''); setAuthOpen(true); }} onSearch={(query, bedrooms) => { setSearchQuery(query); setBedroomFilter(bedrooms); setSignup(false); setError(''); setAuthOpen(true); }}>
+    <section className="auth-panel form-panel"><p className="eyebrow">YOUR SPACE, SIMPLIFIED</p><h1 id="auth-title">{signup ? 'Create an account' : 'Welcome back'}</h1><p>Log in to find your next home or manage your properties.</p>
       {error && <div className="error" role="alert">{error}</div>}
       <form onSubmit={authenticate}>
         <label>Username<input required minLength={3} maxLength={40} pattern="[a-zA-Z0-9_.-]+" autoComplete="username" value={account.username} onChange={e => setAccount({ ...account, username: e.target.value })}/></label>
@@ -85,18 +90,20 @@ export default function Home() {
         <button type="button" disabled={busy} onClick={() => { setSignup(!signup); setError(''); }}>{signup ? 'Already have an account? Log in' : 'New here? Sign up'}</button>
       </form>
     </section>
-  </main>;
+  </Landing>;
+  const filteredProperties = properties.filter(p => `${p.title} ${p.address}`.toLowerCase().includes(searchQuery.toLowerCase()) && (bedroomFilter === '' || (bedroomFilter === '3' ? p.bedrooms >= 3 : p.bedrooms === Number(bedroomFilter))));
   return <main>
-    <header><div className="brand">⌂ &nbsp; RENTAL PROPERTY</div><div className="account-bar"><span className="tag">{user.username} · {user.role}</span><button disabled={busy} onClick={() => void logout()}>Log out</button></div></header>
+    <header><Brand/><div className="account-bar"><span className="tag">{user.username} · {user.role}</span><button disabled={busy} onClick={() => void logout()}>Log out</button></div></header>
     <section className="intro"><p className="eyebrow">YOUR SPACE, SIMPLIFIED</p><h1>{user.role === 'client' ? 'Find your next home.' : 'A home for your properties.'}</h1><p>{user.role === 'admin' ? 'Manage accounts, listings and availability from one place.' : user.role === 'landlord' ? 'Browse all listings and manage the properties you own.' : 'Explore rental listings and availability.'}</p></section>
+    <div className="dashboard-search"><label>Search properties<input placeholder="City, neighbourhood or property name" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}/></label><label>Bedrooms<select value={bedroomFilter} onChange={e => setBedroomFilter(e.target.value)}><option value="">Any bedrooms</option><option value="0">Studio</option><option value="1">1 bedroom</option><option value="2">2 bedrooms</option><option value="3">3+ bedrooms</option></select></label><button onClick={() => { setSearchQuery(''); setBedroomFilter(''); }}>Clear filters</button></div>
     <div className="stats"><div><strong>{properties.length}</strong><span>Total properties</span></div><div><strong>{properties.filter(p => p.available).length}</strong><span>Available to rent</span></div></div>
     {error && <div className="error" role="alert">{error} <button onClick={() => void load()} disabled={busy}>Retry</button></div>}
     {notice && <p role="status">{notice}</p>}
     {user.role === 'admin' && <section className="admin-panel form-panel"><div><p className="eyebrow">ADMINISTRATION</p><h2>Manage accounts</h2><p>Create landlord and client accounts. Deleting an account signs the user out; its properties remain under admin management.</p>
       {users.length === 0 ? <p>No landlord or client accounts yet.</p> : users.map(target => <div className="user-row" key={target._id}><span><b>{target.username}</b> · {target.role}</span><button className="delete" disabled={busy} onClick={() => void deleteUser(target)}>Delete account</button></div>)}
     </div><form onSubmit={createUser}><label>Username<input required minLength={3} maxLength={40} pattern="[a-zA-Z0-9_.-]+" autoComplete="off" value={newUser.username} onChange={e => setNewUser({ ...newUser, username: e.target.value })}/></label><label>Password<input required type="password" minLength={8} maxLength={128} autoComplete="new-password" value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })}/></label><label>Role<select value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })}><option value="landlord">Landlord</option><option value="client">Client</option></select></label><button className="primary" disabled={busy}>Create account</button></form></section>}
-    <div className={user.role === 'client' ? 'workspace browse' : 'workspace'}><section className="list"><div className="section-title"><h2>Property listings</h2><span>{properties.length} listings</span></div>
-      {loading ? <p role="status">Loading properties…</p> : properties.length === 0 ? <div className="empty"><h3>Your next chapter starts here.</h3><p>{user.role === 'client' ? 'Check back soon for rental listings.' : 'Add your first rental property using the form.'}</p></div> : properties.map(p => <article key={p._id}>
+    <div className={user.role === 'client' ? 'workspace browse' : 'workspace'}><section className="list"><div className="section-title"><h2>Property listings</h2><span>{filteredProperties.length} listings</span></div>
+      {loading ? <p role="status">Loading properties…</p> : filteredProperties.length === 0 ? <div className="empty"><h3>No properties found.</h3><p>{user.role === 'client' ? 'Try a different search or check back soon for listings.' : 'Try another search or add a rental property using the form.'}</p></div> : filteredProperties.map(p => <article key={p._id}>
         <div className="card-top"><span className="house">⌂</span><span className={p.available ? 'status' : 'status occupied'}>{p.available ? 'Available' : 'Occupied'}</span></div>
         <h3>{p.title}</h3><p className="address">{p.address}</p><p className="description">{p.description || 'No description added.'}</p>
         <div className="details"><span><b>₹{p.rent.toLocaleString('en-IN')}</b> / month</span><span>{p.bedrooms === 0 ? 'Studio' : `${p.bedrooms} bed`}</span></div>
